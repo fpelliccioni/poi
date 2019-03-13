@@ -20,7 +20,9 @@ package org.apache.poi.openxml4j.opc.internal.marshallers;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.UnsupportedEncodingException;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -139,6 +141,7 @@ public final class ZipPartMarshaller implements PartMarshaller {
 				.getSourcePartUriFromRelationshipPartUri(relPartName.getURI());
 
 		for (PackageRelationship rel : rels) {
+            // System.out.println("rel: " + rel);
 			// the relationship element
             Element relElem = xmlOutDoc.createElementNS(PackageNamespaces.RELATIONSHIPS, PackageRelationship.RELATIONSHIP_TAG_NAME);
             root.appendChild(relElem);
@@ -151,19 +154,43 @@ public final class ZipPartMarshaller implements PartMarshaller {
 
 			// the relationship Target
 			String targetValue;
-			URI uri = rel.getTargetURI();
+            URI uri = rel.getTargetURI();
+            // System.out.println("uri: " + uri);
 			if (rel.getTargetMode() == TargetMode.EXTERNAL) {
+                // System.out.println("rel.getTargetMode() == TargetMode.EXTERNAL");
 				// Save the target as-is - we don't need to validate it,
 				//  alter it etc
-				targetValue = uri.toString();
+                targetValue = uri.toString();
+                // System.out.println("targetValue: " + targetValue);
 
 				// add TargetMode attribute (as it is external link external)
 				relElem.setAttribute(PackageRelationship.TARGET_MODE_ATTRIBUTE_NAME, "External");
 			} else {
+                // System.out.println("rel.getTargetMode() != TargetMode.EXTERNAL");
                 URI targetURI = rel.getTargetURI();
-                targetValue = PackagingURIHelper.relativizeURI(
-						sourcePartURI, targetURI, true).toString();
-			}
+
+                // System.out.println("targetURI: " + targetURI);
+
+                // targetValue = PackagingURIHelper.relativizeURI(
+                //         sourcePartURI, targetURI, true).toString();
+                        
+                URI relativeURI = PackagingURIHelper.relativizeURI(sourcePartURI, targetURI, true);
+                // System.out.println("relativeURI: " + relativeURI);
+
+                targetValue = relativeURI.toString();
+
+                try {
+                    // String result = java.net.URLDecoder.decode(targetValue, StandardCharsets.UTF_8.name());
+                    // System.out.println("decoded URI: " + result);
+
+                    targetValue = java.net.URLDecoder.decode(targetValue, StandardCharsets.UTF_8.name());
+
+                } catch (UnsupportedEncodingException e) {
+                    // not going to happen - value came from JDK's own StandardCharsets
+                }
+                // System.out.println("targetValue: " + targetValue);
+
+            }
 			relElem.setAttribute(PackageRelationship.TARGET_ATTRIBUTE_NAME, targetValue);
 		}
 
